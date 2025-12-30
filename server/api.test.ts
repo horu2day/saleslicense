@@ -66,7 +66,7 @@ describe("License API", () => {
     });
 
     expect(result.valid).toBe(false);
-    expect(result.message).toBe("License key not found");
+    expect(result.message).toBe("Invalid license key");
   });
 
   it("should get user licenses", async () => {
@@ -93,16 +93,16 @@ describe("Seller Profile API", () => {
     const ctx = createMockContext(1);
     const caller = appRouter.createCaller(ctx);
 
-    const result = await caller.seller.getMyProfile();
+    const result = await caller.sellerProfile.getProfile();
     // Result can be null if profile doesn't exist
     expect(result === null || typeof result === "object").toBe(true);
   });
 
   it("should create seller profile", async () => {
-    const ctx = createMockContext(99999); // Use different userId to avoid duplicate
+    const ctx = createMockContext(777777); // Use different userId to avoid duplicate
     const caller = appRouter.createCaller(ctx);
 
-    const result = await caller.seller.createProfile({
+    const result = await caller.sellerProfile.createProfile({
       companyName: "Test Company",
       bio: "Test Bio",
     });
