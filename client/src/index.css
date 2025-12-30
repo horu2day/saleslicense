@@ -1,6 +1,9 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/* Google Fonts - Bold Display + Clean Body */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
@@ -43,39 +46,40 @@
 }
 
 :root {
-  --primary: var(--color-blue-700);
-  --primary-foreground: var(--color-blue-50);
-  --sidebar-primary: var(--color-blue-600);
-  --sidebar-primary-foreground: var(--color-blue-50);
-  --chart-1: var(--color-blue-300);
-  --chart-2: var(--color-blue-500);
-  --chart-3: var(--color-blue-600);
-  --chart-4: var(--color-blue-700);
-  --chart-5: var(--color-blue-800);
-  --radius: 0.65rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.235 0.015 65);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.235 0.015 65);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.235 0.015 65);
-  --secondary: oklch(0.98 0.001 286.375);
-  --secondary-foreground: oklch(0.4 0.015 65);
-  --muted: oklch(0.967 0.001 286.375);
-  --muted-foreground: oklch(0.552 0.016 285.938);
-  --accent: oklch(0.967 0.001 286.375);
-  --accent-foreground: oklch(0.141 0.005 285.823);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.92 0.004 286.32);
-  --input: oklch(0.92 0.004 286.32);
-  --ring: oklch(0.623 0.214 259.815);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.235 0.015 65);
-  --sidebar-accent: oklch(0.967 0.001 286.375);
-  --sidebar-accent-foreground: oklch(0.141 0.005 285.823);
-  --sidebar-border: oklch(0.92 0.004 286.32);
-  --sidebar-ring: oklch(0.623 0.214 259.815);
+  /* Gumroad-inspired color palette */
+  --primary: #E91E8C; /* Vibrant Magenta/Pink */
+  --primary-foreground: #FFFFFF;
+  --sidebar-primary: #E91E8C;
+  --sidebar-primary-foreground: #FFFFFF;
+  --chart-1: #E91E8C;
+  --chart-2: #FF6B9D;
+  --chart-3: #FFC300;
+  --chart-4: #00CED1;
+  --chart-5: #9B59B6;
+  --radius: 0.5rem;
+  --background: oklch(1 0 0); /* White */
+  --foreground: oklch(0.1 0 0); /* Deep Black */
+  --card: oklch(1 0 0); /* White */
+  --card-foreground: oklch(0.1 0 0); /* Deep Black */
+  --popover: oklch(1 0 0); /* White */
+  --popover-foreground: oklch(0.1 0 0); /* Deep Black */
+  --secondary: #F5F5F5;
+  --secondary-foreground: #333333;
+  --muted: #E5E5E5;
+  --muted-foreground: #666666;
+  --accent: #E91E8C; /* Pink accent */
+  --accent-foreground: #FFFFFF;
+  --destructive: #EF4444;
+  --destructive-foreground: #FFFFFF;
+  --border: #E5E5E5;
+  --input: #FFFFFF;
+  --ring: #E91E8C;
+  --sidebar: #FFFFFF;
+  --sidebar-foreground: #000000;
+  --sidebar-accent: #E91E8C;
+  --sidebar-accent-foreground: #FFFFFF;
+  --sidebar-border: #E5E5E5;
+  --sidebar-ring: #E91E8C;
 }
 
 .dark {
@@ -119,6 +123,11 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-family: 'Inter', sans-serif;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Poppins', sans-serif;
+    font-weight: 700;
   }
   button:not(:disabled),
   [role="button"]:not([aria-disabled="true"]),
