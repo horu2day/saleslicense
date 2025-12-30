@@ -99,7 +99,7 @@ describe("Seller Profile API", () => {
   });
 
   it("should create seller profile", async () => {
-    const ctx = createMockContext(999); // Use different userId to avoid duplicate
+    const ctx = createMockContext(99999); // Use different userId to avoid duplicate
     const caller = appRouter.createCaller(ctx);
 
     const result = await caller.seller.createProfile({

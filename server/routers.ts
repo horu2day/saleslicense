@@ -8,6 +8,7 @@ import {
   getProductById,
   getSellerProducts,
   createProduct,
+  updateProduct,
   generateLicenseKey,
   getLicenseKeyByKey,
   getLicenseKeysByBuyerId,
@@ -18,6 +19,9 @@ import {
   getSellerProfile,
   createSellerProfile,
 } from "./db";
+import { getDb } from "./db";
+import { products, licenseKeys } from "../drizzle/schema";
+import { eq, inArray, desc } from "drizzle-orm";
 import { nanoid } from "nanoid";
 
 export const appRouter = router({
@@ -76,6 +80,31 @@ export const appRouter = router({
           licenseType: input.licenseType,
         });
       }),
+
+    update: protectedProcedure
+      .input(
+        z.object({
+          id: z.number(),
+          title: z.string().optional(),
+          description: z.string().optional(),
+          category: z.string().optional(),
+          price: z.string().optional(),
+          active: z.boolean().optional(),
+        })
+      )
+      .mutation(async ({ input, ctx }) => {
+        const product = await getProductById(input.id);
+        if (!product || product.sellerId !== ctx.user.id) {
+          throw new Error("Unauthorized");
+        }
+        return await updateProduct(input.id, {
+          title: input.title,
+          description: input.description,
+          category: input.category,
+          price: input.price,
+          active: input.active,
+        });
+      }),
   }),
 
   // License endpoints
@@ -83,6 +112,46 @@ export const appRouter = router({
     getMyLicenses: protectedProcedure.query(async ({ ctx }) => {
       return await getLicenseKeysByBuyerId(ctx.user.id);
     }),
+
+    getSellerLicenses: protectedProcedure.query(async ({ ctx }) => {
+      const db = await getDb();
+      if (!db) return [];
+      const sellerProducts = await getSellerProducts(ctx.user.id);
+      const productIds = sellerProducts.map((p: any) => p.id);
+      if (productIds.length === 0) return [];
+      return await db
+        .select()
+        .from(licenseKeys)
+        .where(inArray(licenseKeys.productId, productIds))
+        .orderBy(desc(licenseKeys.createdAt));
+    }),
+
+    generateForProduct: protectedProcedure
+      .input(
+        z.object({
+          productId: z.number(),
+          count: z.number().min(1).max(100),
+        })
+      )
+      .mutation(async ({ input, ctx }) => {
+        const product = await getProductById(input.productId);
+        if (!product || product.sellerId !== ctx.user.id) {
+          throw new Error("Unauthorized");
+        }
+
+        const keys = [];
+        for (let i = 0; i < input.count; i++) {
+          const key = `${product.id}-${nanoid(16)}`.toUpperCase();
+          await generateLicenseKey({
+            productId: input.productId,
+            buyerId: ctx.user.id,
+            orderId: 0,
+            key,
+          });
+          keys.push(key);
+        }
+        return keys;
+      }),
 
     validateKey: publicProcedure
       .input(z.object({ key: z.string() }))
