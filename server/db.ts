@@ -1,4 +1,4 @@
-import { eq, and, desc, asc, like, gte, lte } from "drizzle-orm";
+import { eq, and, desc, asc, like, gte, lte, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   InsertUser,
@@ -8,11 +8,13 @@ import {
   orders,
   downloads,
   sellerProfiles,
+  reviews,
   InsertProduct,
   InsertLicenseKey,
   InsertOrder,
   InsertDownload,
   InsertSellerProfile,
+  InsertReview,
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -325,4 +327,72 @@ export async function updateSellerProfile(
     .update(sellerProfiles)
     .set(updates)
     .where(eq(sellerProfiles.userId, userId));
+}
+
+// Review functions
+export async function createReview(review: InsertReview) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const result = await db.insert(reviews).values(review);
+  return result;
+}
+
+export async function getReviewsByProductId(productId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  return await db
+    .select()
+    .from(reviews)
+    .where(eq(reviews.productId, productId))
+    .orderBy(desc(reviews.createdAt));
+}
+
+export async function getReviewById(reviewId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const result = await db
+    .select()
+    .from(reviews)
+    .where(eq(reviews.id, reviewId))
+    .limit(1);
+
+  return result.length > 0 ? result[0] : null;
+}
+
+export async function updateReview(
+  reviewId: number,
+  updates: Partial<InsertReview>
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  return await db
+    .update(reviews)
+    .set(updates)
+    .where(eq(reviews.id, reviewId));
+}
+
+export async function deleteReview(reviewId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  return await db.delete(reviews).where(eq(reviews.id, reviewId));
+}
+
+export async function getAverageRating(productId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const result = await db
+    .select({
+      avgRating: sql`AVG(${reviews.rating})`,
+      count: sql`COUNT(*)`,
+    })
+    .from(reviews)
+    .where(eq(reviews.productId, productId));
+
+  return result[0];
 }

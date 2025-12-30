@@ -1,5 +1,6 @@
-import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
+
+const COOKIE_NAME = "__session";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import { z } from "zod";
@@ -18,9 +19,15 @@ import {
   recordDownload,
   getSellerProfile,
   createSellerProfile,
+  createReview,
+  getReviewsByProductId,
+  getReviewById,
+  updateReview,
+  deleteReview,
+  getAverageRating,
 } from "./db";
 import { getDb } from "./db";
-import { products, licenseKeys } from "../drizzle/schema";
+import { products, licenseKeys, orders } from "../drizzle/schema";
 import { eq, inArray, desc } from "drizzle-orm";
 import { nanoid } from "nanoid";
 
@@ -125,18 +132,18 @@ export const appRouter = router({
       return await getLicenseKeysByBuyerId(ctx.user.id);
     }),
 
-    getSellerLicenses: protectedProcedure.query(async ({ ctx }) => {
-      const db = await getDb();
-      if (!db) return [];
-      const sellerProducts = await getSellerProducts(ctx.user.id);
-      const productIds = sellerProducts.map((p: any) => p.id);
-      if (productIds.length === 0) return [];
-      return await db
-        .select()
-        .from(licenseKeys)
-        .where(inArray(licenseKeys.productId, productIds))
-        .orderBy(desc(licenseKeys.createdAt));
-    }),
+    validateKey: publicProcedure
+      .input(z.object({ key: z.string() }))
+      .query(async ({ input }) => {
+        const license = await getLicenseKeyByKey(input.key);
+        if (!license) {
+          return { valid: false, message: "Invalid license key" };
+        }
+        if (license.status !== "active") {
+          return { valid: false, message: "License is not active" };
+        }
+        return { valid: true, message: "License is valid", license };
+      }),
 
     generateForProduct: protectedProcedure
       .input(
@@ -153,34 +160,49 @@ export const appRouter = router({
 
         const keys = [];
         for (let i = 0; i < input.count; i++) {
-          const key = `${product.id}-${nanoid(16)}`.toUpperCase();
-          await generateLicenseKey({
+          const key = await generateLicenseKey({
             productId: input.productId,
-            buyerId: ctx.user.id,
-            orderId: 0,
-            key,
+            key: `${input.productId}-${nanoid(20)}`,
+            status: "inactive",
           });
           keys.push(key);
         }
         return keys;
       }),
 
+    getSellerLicenses: protectedProcedure.query(async ({ ctx }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      const sellerProducts = await getSellerProducts(ctx.user.id);
+      const productIds = sellerProducts.map((p: any) => p.id);
+
+      if (productIds.length === 0) {
+        return [];
+      }
+
+      return await db
+        .select()
+        .from(licenseKeys)
+        .where(inArray(licenseKeys.productId, productIds))
+        .orderBy(desc(licenseKeys.createdAt));
+    }),
+
     updateStatus: protectedProcedure
       .input(
         z.object({
           licenseId: z.number(),
-          status: z.enum(["active", "inactive", "expired", "revoked"]),
+          status: z.enum(["active", "inactive"]),
         })
       )
       .mutation(async ({ input, ctx }) => {
-        const db = await getDb();
-        if (!db) throw new Error("Database not available");
-
-        const license = await db
-          .select()
-          .from(licenseKeys)
-          .where(eq(licenseKeys.id, input.licenseId))
-          .limit(1);
+        const license = await getDb().then((db) =>
+          db
+            ?.select()
+            .from(licenseKeys)
+            .where(eq(licenseKeys.id, input.licenseId))
+            .limit(1)
+        );
 
         if (!license || license.length === 0) {
           throw new Error("License not found");
@@ -191,27 +213,13 @@ export const appRouter = router({
           throw new Error("Unauthorized");
         }
 
+        const db = await getDb();
+        if (!db) throw new Error("Database not available");
+
         return await db
           .update(licenseKeys)
           .set({ status: input.status })
           .where(eq(licenseKeys.id, input.licenseId));
-      }),
-
-    validateKey: publicProcedure
-      .input(z.object({ key: z.string() }))
-      .query(async ({ input }) => {
-        const license = await getLicenseKeyByKey(input.key);
-        if (!license) {
-          return { valid: false, message: "License key not found" };
-        }
-        if (license.status !== "active") {
-          return { valid: false, message: "License is " + license.status };
-        }
-        return {
-          valid: true,
-          message: "License is valid",
-          license,
-        };
       }),
   }),
 
@@ -221,53 +229,34 @@ export const appRouter = router({
       .input(
         z.object({
           productId: z.number(),
-          quantity: z.number().default(1),
+          licenseKeyId: z.number().optional(),
         })
       )
       .mutation(async ({ input, ctx }) => {
         const product = await getProductById(input.productId);
-        if (!product) {
-          throw new Error("Product not found");
-        }
-
-        const totalPrice = (
-          parseFloat(product.price) * input.quantity
-        ).toString();
-
-        const order = await createOrder({
-          buyerId: ctx.user.id,
+        if (!product) throw new Error("Product not found");
+        return await createOrder({
+          productId: input.productId,
           sellerId: product.sellerId,
-          productId: input.productId,
-          quantity: input.quantity,
-          unitPrice: product.price,
-          totalPrice,
-          currency: product.currency,
-          status: "pending",
-        });
-
-        const key = `${product.id}-${nanoid(16)}`.toUpperCase();
-        const orderId = (order as any).insertId || 1;
-        await generateLicenseKey({
-          productId: input.productId,
           buyerId: ctx.user.id,
-          orderId: orderId as number,
-          key,
+          unitPrice: product.price,
+          totalPrice: product.price,
+          status: "completed",
         });
-
-        return order;
       }),
 
     getMyOrders: protectedProcedure.query(async ({ ctx }) => {
       return await getOrdersByBuyerId(ctx.user.id);
     }),
+
     getSellingOrders: protectedProcedure.query(async ({ ctx }) => {
       return await getOrdersBySellerId(ctx.user.id);
     }),
   }),
 
   // Seller profile endpoints
-  seller: router({
-    getMyProfile: protectedProcedure.query(async ({ ctx }) => {
+  sellerProfile: router({
+    getProfile: protectedProcedure.query(async ({ ctx }) => {
       return await getSellerProfile(ctx.user.id);
     }),
 
@@ -302,6 +291,78 @@ export const appRouter = router({
           productId: input.productId,
           licenseKeyId: input.licenseKeyId,
         });
+      }),
+  }),
+
+  // Review endpoints
+  reviews: router({
+    create: protectedProcedure
+      .input(
+        z.object({
+          productId: z.number(),
+          rating: z.number().min(1).max(5),
+          title: z.string().min(1).max(255),
+          content: z.string().min(1),
+        })
+      )
+      .mutation(async ({ input, ctx }) => {
+        return await createReview({
+          productId: input.productId,
+          buyerId: ctx.user.id,
+          rating: input.rating,
+          title: input.title,
+          content: input.content,
+          isVerifiedPurchase: true,
+        });
+      }),
+
+    getByProduct: publicProcedure
+      .input(z.object({ productId: z.number() }))
+      .query(async ({ input }) => {
+        return await getReviewsByProductId(input.productId);
+      }),
+
+    getById: publicProcedure
+      .input(z.object({ id: z.number() }))
+      .query(async ({ input }) => {
+        return await getReviewById(input.id);
+      }),
+
+    update: protectedProcedure
+      .input(
+        z.object({
+          id: z.number(),
+          rating: z.number().min(1).max(5).optional(),
+          title: z.string().min(1).max(255).optional(),
+          content: z.string().min(1).optional(),
+        })
+      )
+      .mutation(async ({ input, ctx }) => {
+        const review = await getReviewById(input.id);
+        if (!review || review.buyerId !== ctx.user.id) {
+          throw new Error("Unauthorized");
+        }
+        return await updateReview(input.id, {
+          rating: input.rating,
+          title: input.title,
+          content: input.content,
+        });
+      }),
+
+    delete: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input, ctx }) => {
+        const review = await getReviewById(input.id);
+        if (!review || review.buyerId !== ctx.user.id) {
+          throw new Error("Unauthorized");
+        }
+        return await deleteReview(input.id);
+      }),
+
+    getAverageRating: publicProcedure
+      .input(z.object({ productId: z.number() }))
+      .query(async ({ input }) => {
+        return await getAverageRating(input.productId);
       }),
   }),
 });

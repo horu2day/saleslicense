@@ -147,6 +147,33 @@ export type Order = typeof orders.$inferSelect;
 export type InsertOrder = typeof orders.$inferInsert;
 
 /**
+ * Reviews table
+ * Stores customer reviews and ratings for products
+ */
+export const reviews = mysqlTable(
+  "reviews",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    productId: int("productId").notNull(),
+    buyerId: int("buyerId").notNull(),
+    rating: int("rating").notNull(), // 1-5 stars
+    title: varchar("title", { length: 255 }).notNull(),
+    content: text("content").notNull(),
+    helpful: int("helpful").default(0).notNull(), // Number of helpful votes
+    isVerifiedPurchase: boolean("isVerifiedPurchase").default(true).notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  (table) => ({
+    productIdx: index("product_idx").on(table.productId),
+    buyerIdx: index("buyer_idx").on(table.buyerId),
+  })
+);
+
+export type Review = typeof reviews.$inferSelect;
+export type InsertReview = typeof reviews.$inferInsert;
+
+/**
  * Downloads table
  * Tracks product downloads by users
  */

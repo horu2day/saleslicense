@@ -53,7 +53,7 @@ export default function SellerDashboard() {
     { enabled: isAuthenticated }
   );
 
-  const { data: sellerProfile } = trpc.seller.getMyProfile.useQuery(
+  const { data: sellerProfile } = trpc.sellerProfile.getProfile.useQuery(
     undefined,
     { enabled: isAuthenticated }
   );

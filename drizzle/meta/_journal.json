@@ -15,6 +15,13 @@
       "when": 1767105721711,
       "tag": "0001_smooth_hemingway",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1767136740763,
+      "tag": "0002_free_vector",
+      "breakpoints": true
     }
   ]
 }
