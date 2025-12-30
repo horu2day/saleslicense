@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Search, Github, Zap, Shield, Rocket } from "lucide-react";
 import { useState, useEffect } from "react";
+import { getLoginUrl } from "@/const";
 
 /**
  * Design Philosophy: Playful Modernism with Bold Personality
@@ -171,12 +172,36 @@ export default function Home() {
           </div>
 
           <div className="flex items-center gap-3">
-            <Button
-              variant="outline"
-              className="hidden sm:inline-flex border-gray-300 text-gray-700 hover:bg-gray-50"
-            >
-              Log in
-            </Button>
+            {isAuthenticated ? (
+              <>
+                <span className="text-sm text-gray-700">{user?.name || "User"}</span>
+                <a href="/dashboard">
+                  <Button
+                    variant="outline"
+                    className="border-gray-300 text-gray-700 hover:bg-gray-50"
+                  >
+                    Dashboard
+                  </Button>
+                </a>
+                <Button
+                  variant="outline"
+                  className="border-gray-300 text-gray-700 hover:bg-gray-50"
+                  onClick={logout}
+                >
+                  Log out
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  variant="outline"
+                  className="hidden sm:inline-flex border-gray-300 text-gray-700 hover:bg-gray-50"
+                  onClick={() => (window.location.href = getLoginUrl())}
+                >
+                  Log in
+                </Button>
+              </>
+            )}
             <Button className="bg-black text-white hover:bg-gray-900 transition-colors duration-200">
               Start selling
             </Button>

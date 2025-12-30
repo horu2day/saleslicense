@@ -13,6 +13,7 @@ import {
   getLicenseKeysByBuyerId,
   createOrder,
   getOrdersByBuyerId,
+  getOrdersBySellerId,
   recordDownload,
   getSellerProfile,
   createSellerProfile,
@@ -145,6 +146,9 @@ export const appRouter = router({
 
     getMyOrders: protectedProcedure.query(async ({ ctx }) => {
       return await getOrdersByBuyerId(ctx.user.id);
+    }),
+    getSellingOrders: protectedProcedure.query(async ({ ctx }) => {
+      return await getOrdersBySellerId(ctx.user.id);
     }),
   }),
 
