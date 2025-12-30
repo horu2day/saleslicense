@@ -50,8 +50,17 @@ export default function LicenseManagement() {
       setIsGenerateOpen(false);
       setGenerateData({ productId: "", count: "1" });
     },
-    onError: (error) => {
+    onError: (error: any) => {
       toast.error("라이선스 생성 실패: " + error.message);
+    },
+  });
+
+  const updateStatusMutation = trpc.licenses.updateStatus.useMutation({
+    onSuccess: () => {
+      toast.success("라이선스 상태가 변경되었습니다");
+    },
+    onError: (error: any) => {
+      toast.error("상태 변경 실패: " + error.message);
     },
   });
 
@@ -70,6 +79,14 @@ export default function LicenseManagement() {
   const handleCopyKey = (key: string) => {
     navigator.clipboard.writeText(key);
     toast.success("라이선스 키가 복사되었습니다");
+  };
+
+  const handleToggleLicenseStatus = (license: any) => {
+    const newStatus = license.status === "active" ? "inactive" : "active";
+    updateStatusMutation.mutate({
+      licenseId: license.id,
+      status: newStatus,
+    });
   };
 
   // Filter licenses
@@ -295,17 +312,19 @@ export default function LicenseManagement() {
                       <div className="flex gap-2">
                         {license.status === "active" ? (
                           <button
+                            onClick={() => handleToggleLicenseStatus(license)}
                             className="p-2 hover:bg-gray-200 rounded transition-colors"
                             title="비활성화"
                           >
-                            <Lock className="w-4 h-4 text-gray-600" />
+                            <Lock className="w-4 h-4 text-green-600" />
                           </button>
                         ) : (
                           <button
+                            onClick={() => handleToggleLicenseStatus(license)}
                             className="p-2 hover:bg-gray-200 rounded transition-colors"
                             title="활성화"
                           >
-                            <Unlock className="w-4 h-4 text-gray-600" />
+                            <Unlock className="w-4 h-4 text-gray-400" />
                           </button>
                         )}
                         <button

@@ -105,6 +105,18 @@ export const appRouter = router({
           active: input.active,
         });
       }),
+
+    delete: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input, ctx }) => {
+        const product = await getProductById(input.id);
+        if (!product || product.sellerId !== ctx.user.id) {
+          throw new Error("Unauthorized");
+        }
+        const db = await getDb();
+        if (!db) throw new Error("Database not available");
+        return await db.delete(products).where(eq(products.id, input.id));
+      }),
   }),
 
   // License endpoints
@@ -151,6 +163,38 @@ export const appRouter = router({
           keys.push(key);
         }
         return keys;
+      }),
+
+    updateStatus: protectedProcedure
+      .input(
+        z.object({
+          licenseId: z.number(),
+          status: z.enum(["active", "inactive", "expired", "revoked"]),
+        })
+      )
+      .mutation(async ({ input, ctx }) => {
+        const db = await getDb();
+        if (!db) throw new Error("Database not available");
+
+        const license = await db
+          .select()
+          .from(licenseKeys)
+          .where(eq(licenseKeys.id, input.licenseId))
+          .limit(1);
+
+        if (!license || license.length === 0) {
+          throw new Error("License not found");
+        }
+
+        const product = await getProductById(license[0].productId);
+        if (!product || product.sellerId !== ctx.user.id) {
+          throw new Error("Unauthorized");
+        }
+
+        return await db
+          .update(licenseKeys)
+          .set({ status: input.status })
+          .where(eq(licenseKeys.id, input.licenseId));
       }),
 
     validateKey: publicProcedure

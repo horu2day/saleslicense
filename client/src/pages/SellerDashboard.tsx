@@ -26,6 +26,14 @@ import { toast } from "sonner";
 export default function SellerDashboard() {
   const { user, isAuthenticated } = useAuth();
   const [isAddProductOpen, setIsAddProductOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<any>(null);
+  const [editData, setEditData] = useState({
+    title: "",
+    description: "",
+    category: "",
+    price: "",
+  });
   const [newProduct, setNewProduct] = useState({
     title: "",
     description: "",
@@ -67,6 +75,58 @@ export default function SellerDashboard() {
       toast.error("제품 추가 실패: " + error.message);
     },
   });
+
+  const updateProductMutation = trpc.products.update.useMutation({
+    onSuccess: () => {
+      toast.success("제품이 수정되었습니다");
+      setIsEditOpen(false);
+      setEditingProduct(null);
+    },
+    onError: (error) => {
+      toast.error("제품 수정 실패: " + error.message);
+    },
+  });
+
+  const deleteProductMutation = trpc.products.delete.useMutation({
+    onSuccess: () => {
+      toast.success("제품이 삭제되었습니다");
+    },
+    onError: (error: any) => {
+      toast.error("제품 삭제 실패: " + error.message);
+    },
+  });
+
+  const handleEditProduct = (product: any) => {
+    setEditingProduct(product);
+    setEditData({
+      title: product.title,
+      description: product.description || "",
+      category: product.category || "",
+      price: product.price,
+    });
+    setIsEditOpen(true);
+  };
+
+  const handleSaveEdit = () => {
+    if (!editData.title || !editData.price) {
+      toast.error("제목과 가격을 입력해주세요");
+      return;
+    }
+
+    updateProductMutation.mutate({
+      id: editingProduct.id,
+      title: editData.title,
+      description: editData.description,
+      category: editData.category,
+      price: editData.price,
+    });
+  };
+
+  const handleDeleteProduct = (productId: number) => {
+    if (confirm("정말로 이 제품을 삭제하시겠습니까?")) {
+      deleteProductMutation.mutate({ id: productId });
+    }
+  };
 
   const handleAddProduct = () => {
     if (!newProduct.title || !newProduct.price) {
@@ -220,6 +280,82 @@ export default function SellerDashboard() {
                 >
                   {createProductMutation.isPending ? "추가 중..." : "제품 추가"}
                 </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Edit Product Dialog */}
+          <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>제품 정보 수정</DialogTitle>
+                <DialogDescription>
+                  제품의 정보를 수정해주세요.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium">제품명 *</label>
+                  <Input
+                    placeholder="제품명"
+                    value={editData.title}
+                    onChange={(e) =>
+                      setEditData({ ...editData, title: e.target.value })
+                    }
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">설명</label>
+                  <Input
+                    placeholder="제품 설명"
+                    value={editData.description}
+                    onChange={(e) =>
+                      setEditData({ ...editData, description: e.target.value })
+                    }
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">카테고리</label>
+                  <Input
+                    placeholder="카테고리"
+                    value={editData.category}
+                    onChange={(e) =>
+                      setEditData({ ...editData, category: e.target.value })
+                    }
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">가격 (USD) *</label>
+                  <Input
+                    placeholder="99.99"
+                    type="number"
+                    step="0.01"
+                    value={editData.price}
+                    onChange={(e) =>
+                      setEditData({ ...editData, price: e.target.value })
+                    }
+                    className="mt-1"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={handleSaveEdit}
+                    disabled={updateProductMutation.isPending}
+                    className="flex-1 bg-black text-white hover:bg-gray-900"
+                  >
+                    {updateProductMutation.isPending ? "저장 중..." : "저장"}
+                  </Button>
+                  <Button
+                    onClick={() => setIsEditOpen(false)}
+                    variant="outline"
+                    className="flex-1"
+                  >
+                    취소
+                  </Button>
+                </div>
               </div>
             </DialogContent>
           </Dialog>
@@ -378,6 +514,7 @@ export default function SellerDashboard() {
 
                   <div className="flex gap-2">
                     <Button
+                      onClick={() => handleEditProduct(product)}
                       variant="outline"
                       size="sm"
                       className="flex-1 border-gray-300"
@@ -386,9 +523,10 @@ export default function SellerDashboard() {
                       수정
                     </Button>
                     <Button
+                      onClick={() => handleDeleteProduct(product.id)}
                       variant="outline"
                       size="sm"
-                      className="flex-1 border-gray-300"
+                      className="flex-1 border-gray-300 text-red-600 hover:bg-red-50"
                     >
                       <Trash2 className="w-4 h-4 mr-2" />
                       삭제
