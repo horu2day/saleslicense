@@ -1,32 +1,24 @@
-import { useEffect, useRef, useState } from 'react';
-import { useRoute } from 'wouter';
+import { useState } from 'react';
+import { useRoute, useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, AlertCircle, CheckCircle } from 'lucide-react';
+import { Label } from '@/components/ui/label';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Input } from '@/components/ui/input';
+import { Loader2, AlertCircle, CreditCard, Building2, Smartphone } from 'lucide-react';
 import { toast } from 'sonner';
+import { trpc } from '@/lib/trpc';
 
-// Toss Payments V2 SDK 타입 정의
-declare global {
-  interface Window {
-    TossPayments: any;
-  }
-}
-
-interface CheckoutProps {
-  productId: number;
-  productName: string;
-  price: number;
-  orderId: string;
-}
+type PaymentMethod = 'card' | 'transfer' | 'virtual_account' | 'mobile';
 
 export default function Checkout() {
   const [, params] = useRoute('/checkout/:productId');
+  const [, setLocation] = useLocation();
   const [loading, setLoading] = useState(false);
-  const [paymentStatus, setPaymentStatus] = useState<'idle' | 'processing' | 'success' | 'error'>('idle');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('card');
   const [errorMessage, setErrorMessage] = useState('');
-  const widgetsRef = useRef<any>(null);
-  const paymentMethodRef = useRef<HTMLDivElement>(null);
-  const agreementRef = useRef<HTMLDivElement>(null);
+  const [customerName, setCustomerName] = useState('');
+  const [customerEmail, setCustomerEmail] = useState('');
 
   // 샘플 제품 정보 (실제로는 API에서 받아옴)
   const product = {
@@ -36,105 +28,71 @@ export default function Checkout() {
     description: 'Professional design software with advanced features',
   };
 
-  const orderId = `ORDER-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  const createOrderMutation = trpc.payments.createOrder.useMutation();
 
-  useEffect(() => {
-    initializePaymentWidget();
-  }, []);
-
-  // 1️⃣ 결제 위젯 초기화
-  const initializePaymentWidget = async () => {
-    try {
-      setLoading(true);
-
-      // 클라이언트 키 확인
-      const clientKey = import.meta.env.VITE_TOSS_CLIENT_KEY;
-      if (!clientKey) {
-        throw new Error('VITE_TOSS_CLIENT_KEY 환경 변수가 설정되지 않았습니다.');
-      }
-
-      // Toss Payments V2 SDK 로드
-      if (!window.TossPayments) {
-        const script = document.createElement('script');
-        script.src = 'https://js.tosspayments.com/v2/standard';
-        script.async = true;
-        document.head.appendChild(script);
-
-        await new Promise((resolve, reject) => {
-          script.onload = resolve;
-          script.onerror = () => reject(new Error('Toss Payments SDK 로드 실패'));
-        });
-      }
-
-      // Toss Payments 인스턴스 생성
-      const tossPayments = window.TossPayments(clientKey);
-
-      // 비회원 결제 - TossPayments.ANONYMOUS 상수 사용
-      const widgets = tossPayments.widgets({
-        customerKey: window.TossPayments.ANONYMOUS,
-      });
-
-      widgetsRef.current = widgets;
-
-      // 결제 금액 설정
-      await widgets.setAmount({
-        currency: 'KRW',
-        value: Math.round(product.price * 1000), // 원화로 변환
-      });
-
-      // 결제 UI 렌더링
-      await Promise.all([
-        widgets.renderPaymentMethods({
-          selector: '#payment-method',
-          variantKey: 'DEFAULT',
-        }),
-        widgets.renderAgreement({
-          selector: '#agreement',
-          variantKey: 'AGREEMENT',
-        }),
-      ]);
-
-      setLoading(false);
-    } catch (error: any) {
-      console.error('결제 위젯 초기화 실패:', error);
-      setErrorMessage(error.message || '결제 위젯 초기화에 실패했습니다.');
-      setPaymentStatus('error');
-      setLoading(false);
-    }
-  };
-
-  // 2️⃣ 결제 요청 (결제 승인 전 단계)
+  // 결제 요청 (API 개별 연동 방식)
   const handlePaymentRequest = async () => {
     try {
-      setLoading(true);
-      setPaymentStatus('processing');
-
-      if (!widgetsRef.current) {
-        throw new Error('결제 위젯이 초기화되지 않았습니다.');
+      // 입력 검증
+      if (!customerName.trim()) {
+        toast.error('구매자 이름을 입력해주세요.');
+        return;
+      }
+      if (!customerEmail.trim() || !customerEmail.includes('@')) {
+        toast.error('올바른 이메일 주소를 입력해주세요.');
+        return;
       }
 
-      // 결제 요청
-      await widgetsRef.current.requestPayment({
-        orderId: orderId,
-        orderName: product.name,
-        customerEmail: 'customer@example.com', // 실제로는 로그인한 사용자 정보 사용
-        customerName: 'Customer Name',
-        successUrl: `${window.location.origin}/payment/success`,
-        failUrl: `${window.location.origin}/payment/fail`,
+      setLoading(true);
+      setErrorMessage('');
+
+      // 1. 서버에 주문 생성
+      const orderData = await createOrderMutation.mutateAsync({
+        productId: product.id,
       });
 
-      // 성공 URL로 리다이렉트되면 결제 승인 API 호출
-      // (successUrl에서 처리)
+      // 2. 토스페이먼츠 결제 API 호출
+      const response = await fetch('https://api.tosspayments.com/v1/payments', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Basic ${btoa(import.meta.env.VITE_TOSS_CLIENT_KEY + ':')}`,
+        },
+        body: JSON.stringify({
+          method: paymentMethod.toUpperCase(),
+          amount: orderData.amount,
+          orderId: orderData.orderId,
+          orderName: orderData.productName,
+          customerName: customerName,
+          customerEmail: customerEmail,
+          successUrl: `${window.location.origin}/payment/success`,
+          failUrl: `${window.location.origin}/payment/fail`,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || '결제 요청에 실패했습니다.');
+      }
+
+      const paymentData = await response.json();
+
+      // 3. 결제 페이지로 리다이렉트
+      if (paymentData.checkoutUrl) {
+        window.location.href = paymentData.checkoutUrl;
+      } else {
+        throw new Error('결제 페이지 URL을 받지 못했습니다.');
+      }
     } catch (error: any) {
       console.error('결제 요청 실패:', error);
       setErrorMessage(error.message || '결제 요청에 실패했습니다.');
-      setPaymentStatus('error');
+      toast.error(error.message || '결제 요청에 실패했습니다.');
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-pink-50 to-white py-12 px-4">
+    <div className="min-h-screen bg-linear-to-br from-pink-50 to-white py-12 px-4">
       <div className="max-w-2xl mx-auto">
         {/* 주문 정보 카드 */}
         <Card className="mb-8 border-2 border-pink-200">
@@ -157,10 +115,6 @@ export default function Checkout() {
 
             <div className="bg-gray-50 p-4 rounded-lg space-y-2">
               <div className="flex justify-between text-sm">
-                <span className="text-gray-600">주문 ID</span>
-                <span className="font-mono text-gray-900">{orderId}</span>
-              </div>
-              <div className="flex justify-between text-sm">
                 <span className="text-gray-600">상품명</span>
                 <span className="text-gray-900">{product.name}</span>
               </div>
@@ -172,7 +126,38 @@ export default function Checkout() {
           </CardContent>
         </Card>
 
-        {/* 결제 위젯 카드 */}
+        {/* 구매자 정보 입력 */}
+        <Card className="mb-8 border-2 border-pink-200">
+          <CardHeader>
+            <CardTitle>구매자 정보</CardTitle>
+            <CardDescription>결제에 필요한 정보를 입력해주세요</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="customerName">이름</Label>
+              <Input
+                id="customerName"
+                placeholder="홍길동"
+                value={customerName}
+                onChange={(e) => setCustomerName(e.target.value)}
+                disabled={loading}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="customerEmail">이메일</Label>
+              <Input
+                id="customerEmail"
+                type="email"
+                placeholder="example@email.com"
+                value={customerEmail}
+                onChange={(e) => setCustomerEmail(e.target.value)}
+                disabled={loading}
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* 결제 방법 선택 */}
         <Card className="mb-8 border-2 border-pink-200">
           <CardHeader>
             <CardTitle>결제 방법 선택</CardTitle>
@@ -180,9 +165,9 @@ export default function Checkout() {
           </CardHeader>
           <CardContent className="space-y-6">
             {/* 에러 메시지 */}
-            {paymentStatus === 'error' && (
+            {errorMessage && (
               <div className="flex items-center gap-3 p-4 bg-red-50 border border-red-200 rounded-lg">
-                <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
+                <AlertCircle className="w-5 h-5 text-red-600 shrink-0" />
                 <div>
                   <p className="font-semibold text-red-900">결제 오류</p>
                   <p className="text-sm text-red-700">{errorMessage}</p>
@@ -190,41 +175,47 @@ export default function Checkout() {
               </div>
             )}
 
-            {/* 결제 위젯 로딩 */}
-            {loading && paymentStatus === 'idle' && (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="w-8 h-8 animate-spin text-pink-600" />
-                <span className="ml-3 text-gray-600">결제 위젯 로드 중...</span>
+            {/* 결제 수단 선택 */}
+            <RadioGroup value={paymentMethod} onValueChange={(value) => setPaymentMethod(value as PaymentMethod)}>
+              <div className="flex items-center space-x-3 p-4 border rounded-lg hover:bg-gray-50 cursor-pointer">
+                <RadioGroupItem value="card" id="card" />
+                <Label htmlFor="card" className="flex items-center gap-2 cursor-pointer flex-1">
+                  <CreditCard className="w-5 h-5 text-pink-600" />
+                  <span>신용/체크카드</span>
+                </Label>
               </div>
-            )}
-
-            {/* 결제 UI 렌더링 영역 */}
-            {!loading && (
-              <>
-                <div
-                  id="payment-method"
-                  ref={paymentMethodRef}
-                  className="min-h-[200px] border border-gray-200 rounded-lg p-4"
-                />
-
-                {/* 이용약관 UI 렌더링 영역 */}
-                <div
-                  id="agreement"
-                  ref={agreementRef}
-                  className="min-h-[100px] border border-gray-200 rounded-lg p-4"
-                />
-              </>
-            )}
+              <div className="flex items-center space-x-3 p-4 border rounded-lg hover:bg-gray-50 cursor-pointer">
+                <RadioGroupItem value="transfer" id="transfer" />
+                <Label htmlFor="transfer" className="flex items-center gap-2 cursor-pointer flex-1">
+                  <Building2 className="w-5 h-5 text-pink-600" />
+                  <span>계좌이체</span>
+                </Label>
+              </div>
+              <div className="flex items-center space-x-3 p-4 border rounded-lg hover:bg-gray-50 cursor-pointer">
+                <RadioGroupItem value="virtual_account" id="virtual_account" />
+                <Label htmlFor="virtual_account" className="flex items-center gap-2 cursor-pointer flex-1">
+                  <Building2 className="w-5 h-5 text-pink-600" />
+                  <span>가상계좌</span>
+                </Label>
+              </div>
+              <div className="flex items-center space-x-3 p-4 border rounded-lg hover:bg-gray-50 cursor-pointer">
+                <RadioGroupItem value="mobile" id="mobile" />
+                <Label htmlFor="mobile" className="flex items-center gap-2 cursor-pointer flex-1">
+                  <Smartphone className="w-5 h-5 text-pink-600" />
+                  <span>휴대폰 결제</span>
+                </Label>
+              </div>
+            </RadioGroup>
           </CardContent>
         </Card>
 
         {/* 결제 버튼 */}
         <Button
           onClick={handlePaymentRequest}
-          disabled={loading || paymentStatus === 'processing'}
-          className="w-full py-6 text-lg font-semibold bg-gradient-to-r from-pink-600 to-pink-700 hover:from-pink-700 hover:to-pink-800 text-white rounded-lg transition-all duration-300"
+          disabled={loading}
+          className="w-full py-6 text-lg font-semibold bg-linear-to-r from-pink-600 to-pink-700 hover:from-pink-700 hover:to-pink-800 text-white rounded-lg transition-all duration-300"
         >
-          {loading || paymentStatus === 'processing' ? (
+          {loading ? (
             <>
               <Loader2 className="w-5 h-5 mr-2 animate-spin" />
               결제 처리 중...

@@ -34,7 +34,7 @@ pnpm vitest run server/api.test.ts
 ### 기술 스택
 - **프론트엔드**: React 19, Vite, TailwindCSS v4, shadcn/ui (new-york 스타일), wouter (라우팅), TanStack Query
 - **백엔드**: Express, tRPC v11, Drizzle ORM, PostgreSQL
-- **결제**: 토스페이먼츠 V2 API
+- **결제**: 토스페이먼츠 V1 API (개별 연동 방식 - 최소 결제 금액 제한 없음)
 - **인증**: Clerk (Google, GitHub, Email 등 다양한 로그인 지원)
 
 ### 클라이언트-서버 통신
@@ -93,12 +93,20 @@ API 엔드포인트: `/api/trpc`
 
 필수 환경 변수:
 - `DATABASE_URL` - PostgreSQL 연결 문자열
-- `TOSS_SECRET_KEY` - 토스페이먼츠 시크릿 키
-- `VITE_TOSS_CLIENT_KEY` - 토스페이먼츠 클라이언트 키
+- `TOSS_SECRET_KEY` - 토스페이먼츠 시크릿 키 (API 개별 연동용)
+- `VITE_TOSS_CLIENT_KEY` - 토스페이먼츠 클라이언트 키 (API 개별 연동용)
 - `VITE_CLERK_PUBLISHABLE_KEY` - Clerk Publishable Key (클라이언트용)
 - `CLERK_SECRET_KEY` - Clerk Secret Key (서버용)
 
-Clerk 키는 [Clerk Dashboard](https://dashboard.clerk.com)에서 발급받을 수 있습니다.
+**토스페이먼츠 API 키 발급**:
+
+- 테스트 키: [토스페이먼츠 개발자센터](https://developers.tosspayments.com/my/api-keys)
+- API 개별 연동 방식을 사용하므로 결제 위젯과 달리 최소 결제 금액 제한이 없습니다
+- 상점아이디(MID)별로 다른 키를 사용합니다
+
+**Clerk 키 발급**:
+
+- [Clerk Dashboard](https://dashboard.clerk.com)에서 발급받을 수 있습니다
 
 ## UI 컴포넌트
 

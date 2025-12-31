@@ -5,13 +5,19 @@ import { eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 
 /**
- * Toss Payments V2 API를 사용한 결제 승인 처리
+ * Toss Payments API 개별 연동 방식
  *
  * 흐름:
- * 1. 클라이언트에서 결제 위젯으로 결제 요청
- * 2. 결제 성공 시 successUrl로 리다이렉트 (paymentKey, orderId, amount 포함)
- * 3. 서버에서 결제 승인 API 호출
- * 4. 승인 완료 후 주문 및 라이선스 키 생성
+ * 1. 클라이언트에서 결제 수단 선택 및 정보 입력
+ * 2. 서버 API를 통해 토스페이먼츠 결제 API 호출
+ * 3. 결제 성공 시 successUrl로 리다이렉트 (paymentKey, orderId, amount 포함)
+ * 4. 서버에서 결제 승인 API 호출
+ * 5. 승인 완료 후 주문 및 라이선스 키 생성
+ *
+ * API 개별 연동 키 사용:
+ * - 결제위젯이 아닌 SDK/API로 개별 연동
+ * - 상점아이디(MID)별로 다른 키 사용
+ * - 최소 결제 금액 제한 없음 (위젯은 33만원부터)
  */
 
 // 환경 변수에서 Toss Payments 시크릿 키 가져오기

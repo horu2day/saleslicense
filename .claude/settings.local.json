@@ -12,7 +12,12 @@
       "Bash(docker --version:*)",
       "Bash(docker-compose up:*)",
       "Bash(pnpm db:push:*)",
-      "Bash(pnpm list:*)"
+      "Bash(pnpm list:*)",
+      "Bash(npx:*)",
+      "Bash(if not exist \".vscode\" mkdir \".vscode\")",
+      "Bash(npm run check:*)",
+      "Bash(pnpm --version:*)",
+      "Bash(pnpm exec tsc:*)"
     ]
   }
 }
