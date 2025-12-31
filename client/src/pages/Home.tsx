@@ -5,6 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Search, Github, Zap, Shield, Rocket } from "lucide-react";
 import { useState, useEffect } from "react";
+import { useLocation } from "wouter";
+import { toast } from "sonner";
 
 /**
  * Design Philosophy: Playful Modernism with Bold Personality
@@ -16,12 +18,41 @@ import { useState, useEffect } from "react";
  */
 
 export default function Home() {
-  // The userAuth hooks provides authentication state
-  // To implement login/logout functionality, simply call logout() or redirect to getLoginUrl()
-  let { user, loading, error, isAuthenticated, logout } = useAuth();
+  const { user, isAuthenticated, logout, login } = useAuth();
+  const [, setLocation] = useLocation();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [floatingY, setFloatingY] = useState(0);
+
+  // 구매 버튼 클릭 핸들러
+  const handleBuy = (productId: number) => {
+    if (!isAuthenticated) {
+      toast.info("로그인이 필요합니다", {
+        description: "제품을 구매하려면 먼저 로그인해주세요.",
+        action: {
+          label: "로그인",
+          onClick: () => login(),
+        },
+      });
+      return;
+    }
+    setLocation(`/checkout/${productId}`);
+  };
+
+  // 판매 시작 버튼 클릭 핸들러
+  const handleStartSelling = () => {
+    if (!isAuthenticated) {
+      toast.info("로그인이 필요합니다", {
+        description: "판매를 시작하려면 먼저 로그인해주세요.",
+        action: {
+          label: "로그인",
+          onClick: () => login(),
+        },
+      });
+      return;
+    }
+    setLocation("/dashboard");
+  };
 
   // Floating animation for decorative elements
   useEffect(() => {
@@ -201,7 +232,10 @@ export default function Home() {
                 </Button>
               </SignInButton>
             )}
-            <Button className="bg-black text-white hover:bg-gray-900 transition-colors duration-200">
+            <Button
+              className="bg-black text-white hover:bg-gray-900 transition-colors duration-200"
+              onClick={handleStartSelling}
+            >
               Start selling
             </Button>
           </div>
@@ -235,7 +269,10 @@ export default function Home() {
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-8">
-              <Button className="bg-black text-white hover:bg-gray-900 px-8 py-6 text-lg font-medium transition-all duration-200 hover:shadow-lg">
+              <Button
+                className="bg-black text-white hover:bg-gray-900 px-8 py-6 text-lg font-medium transition-all duration-200 hover:shadow-lg"
+                onClick={handleStartSelling}
+              >
                 Start selling
               </Button>
               <div className="relative w-full sm:w-auto">
@@ -377,7 +414,10 @@ export default function Home() {
                   <span className="text-2xl font-bold text-black">
                     {product.price}
                   </span>
-                  <Button className="bg-black text-white hover:bg-gray-900 transition-colors">
+                  <Button
+                    className="bg-black text-white hover:bg-gray-900 transition-colors"
+                    onClick={() => handleBuy(product.id)}
+                  >
                     Buy
                   </Button>
                 </div>
@@ -429,7 +469,10 @@ export default function Home() {
             You don't have to be a tech expert. Just take what you know and
             sell it. It's that simple.
           </p>
-          <Button className="bg-pink-600 text-white hover:bg-pink-700 px-8 py-6 text-lg font-medium transition-colors duration-200">
+          <Button
+            className="bg-pink-600 text-white hover:bg-pink-700 px-8 py-6 text-lg font-medium transition-colors duration-200"
+            onClick={handleStartSelling}
+          >
             Start selling now
           </Button>
         </div>

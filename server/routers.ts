@@ -29,6 +29,7 @@ import { getDb } from "./db";
 import { products, licenseKeys, orders } from "../drizzle/schema";
 import { eq, inArray, desc } from "drizzle-orm";
 import { nanoid } from "nanoid";
+import { approvePayment, handlePaymentFailure } from "./payment";
 
 export const appRouter = router({
   system: systemRouter,
@@ -362,6 +363,113 @@ export const appRouter = router({
       .input(z.object({ productId: z.number() }))
       .query(async ({ input }) => {
         return await getAverageRating(input.productId);
+      }),
+  }),
+
+  // Payment endpoints
+  payments: router({
+    // 주문 생성 (결제 전 단계)
+    createOrder: protectedProcedure
+      .input(
+        z.object({
+          productId: z.number(),
+        })
+      )
+      .mutation(async ({ input, ctx }) => {
+        const product = await getProductById(input.productId);
+        if (!product) throw new Error("Product not found");
+
+        // 주문 생성 (pending 상태)
+        const order = await createOrder({
+          productId: input.productId,
+          sellerId: product.sellerId,
+          buyerId: ctx.user.id,
+          unitPrice: product.price,
+          totalPrice: product.price,
+          status: "pending",
+        });
+
+        // 주문 ID 반환 (orderId 형식: {orderId}-{timestamp})
+        const db = await getDb();
+        if (!db) throw new Error("Database not available");
+
+        const createdOrder = await db
+          .select()
+          .from(orders)
+          .orderBy(desc(orders.id))
+          .limit(1);
+
+        if (!createdOrder.length) {
+          throw new Error("Failed to create order");
+        }
+
+        return {
+          orderId: `${createdOrder[0].id}-${Date.now()}`,
+          amount: Math.round(parseFloat(product.price)),
+          productName: product.title,
+        };
+      }),
+
+    // 결제 승인 확인
+    confirm: protectedProcedure
+      .input(
+        z.object({
+          paymentKey: z.string(),
+          orderId: z.string(),
+          amount: z.number(),
+        })
+      )
+      .mutation(async ({ input, ctx }) => {
+        const result = await approvePayment(
+          input.paymentKey,
+          input.orderId,
+          input.amount,
+          ctx.user.id
+        );
+
+        if (!result.success) {
+          throw new Error(result.error || "결제 승인 실패");
+        }
+
+        // 주문 정보 조회하여 제품명과 라이선스 키 반환
+        const orderIdNum = parseInt(input.orderId.split("-")[0]) || 0;
+        const db = await getDb();
+        if (!db) throw new Error("Database not available");
+
+        const order = await db
+          .select()
+          .from(orders)
+          .where(eq(orders.id, orderIdNum))
+          .limit(1);
+
+        const product = order[0] ? await getProductById(order[0].productId) : null;
+
+        // 생성된 라이선스 키 조회
+        const license = await db
+          .select()
+          .from(licenseKeys)
+          .where(eq(licenseKeys.orderId, orderIdNum))
+          .limit(1);
+
+        return {
+          success: true,
+          productName: product?.title || "제품",
+          licenseKey: license[0]?.key || null,
+        };
+      }),
+
+    // 결제 실패 처리
+    fail: publicProcedure
+      .input(
+        z.object({
+          orderId: z.string(),
+          code: z.string(),
+          message: z.string(),
+        })
+      )
+      .mutation(async ({ input }) => {
+        await handlePaymentFailure(input.orderId, input.code, input.message);
+        return { success: true };
       }),
   }),
 });

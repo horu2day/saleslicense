@@ -11,7 +11,8 @@
       "Bash(pnpm check:*)",
       "Bash(docker --version:*)",
       "Bash(docker-compose up:*)",
-      "Bash(pnpm db:push:*)"
+      "Bash(pnpm db:push:*)",
+      "Bash(pnpm list:*)"
     ]
   }
 }

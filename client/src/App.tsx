@@ -9,6 +9,9 @@ import SellerDashboard from "./pages/SellerDashboard";
 import LicenseManagement from "./pages/LicenseManagement";
 import MyPage from "./pages/MyPage";
 import Download from "./pages/Download";
+import Checkout from "./pages/Checkout";
+import PaymentSuccess from "./pages/PaymentSuccess";
+import PaymentFail from "./pages/PaymentFail";
 
 function Router() {
   return (
@@ -18,6 +21,9 @@ function Router() {
       <Route path={"/licenses"} component={LicenseManagement} />
       <Route path={"/mypage"} component={MyPage} />
       <Route path={"/download"} component={Download} />
+      <Route path={"/checkout/:productId"} component={Checkout} />
+      <Route path={"/payment/success"} component={PaymentSuccess} />
+      <Route path={"/payment/fail"} component={PaymentFail} />
       <Route path={"/404"} component={NotFound} />
       {/* Final fallback route */}
       <Route component={NotFound} />

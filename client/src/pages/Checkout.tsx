@@ -47,6 +47,12 @@ export default function Checkout() {
     try {
       setLoading(true);
 
+      // 클라이언트 키 확인
+      const clientKey = import.meta.env.VITE_TOSS_CLIENT_KEY;
+      if (!clientKey) {
+        throw new Error('VITE_TOSS_CLIENT_KEY 환경 변수가 설정되지 않았습니다.');
+      }
+
       // Toss Payments V2 SDK 로드
       if (!window.TossPayments) {
         const script = document.createElement('script');
@@ -54,18 +60,16 @@ export default function Checkout() {
         script.async = true;
         document.head.appendChild(script);
 
-        await new Promise((resolve) => {
+        await new Promise((resolve, reject) => {
           script.onload = resolve;
+          script.onerror = () => reject(new Error('Toss Payments SDK 로드 실패'));
         });
       }
-
-      // 클라이언트 키 (환경 변수에서 가져오기)
-      const clientKey = import.meta.env.VITE_TOSS_CLIENT_KEY || 'test_ck_live_...';
 
       // Toss Payments 인스턴스 생성
       const tossPayments = window.TossPayments(clientKey);
 
-      // 비회원 결제 (또는 회원 결제 시 customerKey 사용)
+      // 비회원 결제 - TossPayments.ANONYMOUS 상수 사용
       const widgets = tossPayments.widgets({
         customerKey: window.TossPayments.ANONYMOUS,
       });
@@ -91,9 +95,9 @@ export default function Checkout() {
       ]);
 
       setLoading(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error('결제 위젯 초기화 실패:', error);
-      setErrorMessage('결제 위젯 초기화에 실패했습니다.');
+      setErrorMessage(error.message || '결제 위젯 초기화에 실패했습니다.');
       setPaymentStatus('error');
       setLoading(false);
     }
