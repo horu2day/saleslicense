@@ -1,89 +1,53 @@
-import { useEffect, useState } from "react";
-
-import { Button } from "@/components/ui/button";
+import { SignIn } from "@clerk/clerk-react";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
-  DialogFooter,
   DialogTitle,
 } from "@/components/ui/dialog";
 
-interface ManusDialogProps {
+interface LoginDialogProps {
   title?: string;
-  logo?: string;
   open?: boolean;
-  onLogin: () => void;
   onOpenChange?: (open: boolean) => void;
-  onClose?: () => void;
 }
 
+/**
+ * 로그인 다이얼로그
+ *
+ * Clerk의 SignIn 컴포넌트를 사용하여 로그인 UI를 표시합니다.
+ * (이전 ManusDialog에서 Clerk 기반으로 마이그레이션됨)
+ */
 export function ManusDialog({
-  title,
-  logo,
+  title = "Sign in to continue",
   open = false,
-  onLogin,
   onOpenChange,
-  onClose,
-}: ManusDialogProps) {
-  const [internalOpen, setInternalOpen] = useState(open);
-
-  useEffect(() => {
-    if (!onOpenChange) {
-      setInternalOpen(open);
-    }
-  }, [open, onOpenChange]);
-
-  const handleOpenChange = (nextOpen: boolean) => {
-    if (onOpenChange) {
-      onOpenChange(nextOpen);
-    } else {
-      setInternalOpen(nextOpen);
-    }
-
-    if (!nextOpen) {
-      onClose?.();
-    }
-  };
-
+}: LoginDialogProps) {
   return (
-    <Dialog
-      open={onOpenChange ? open : internalOpen}
-      onOpenChange={handleOpenChange}
-    >
-      <DialogContent className="py-5 bg-[#f8f8f7] rounded-[20px] w-[400px] shadow-[0px_4px_11px_0px_rgba(0,0,0,0.08)] border border-[rgba(0,0,0,0.08)] backdrop-blur-2xl p-0 gap-0 text-center">
-        <div className="flex flex-col items-center gap-2 p-5 pt-12">
-          {logo ? (
-            <div className="w-16 h-16 bg-white rounded-xl border border-[rgba(0,0,0,0.08)] flex items-center justify-center">
-              <img
-                src={logo}
-                alt="Dialog graphic"
-                className="w-10 h-10 rounded-md"
-              />
-            </div>
-          ) : null}
-
-          {/* Title and subtitle */}
-          {title ? (
-            <DialogTitle className="text-xl font-semibold text-[#34322d] leading-[26px] tracking-[-0.44px]">
-              {title}
-            </DialogTitle>
-          ) : null}
-          <DialogDescription className="text-sm text-[#858481] leading-5 tracking-[-0.154px]">
-            Please login with Manus to continue
-          </DialogDescription>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="py-5 bg-[#f8f8f7] rounded-[20px] max-w-[450px] shadow-[0px_4px_11px_0px_rgba(0,0,0,0.08)] border border-[rgba(0,0,0,0.08)] backdrop-blur-2xl p-0 gap-0 text-center">
+        <div className="flex flex-col items-center gap-2 p-5 pt-8">
+          <DialogTitle className="text-xl font-semibold text-[#34322d] leading-[26px] tracking-[-0.44px]">
+            {title}
+          </DialogTitle>
         </div>
 
-        <DialogFooter className="px-5 py-5">
-          {/* Login button */}
-          <Button
-            onClick={onLogin}
-            className="w-full h-10 bg-[#1a1a19] hover:bg-[#1a1a19]/90 text-white rounded-[10px] text-sm font-medium leading-5 tracking-[-0.154px]"
-          >
-            Login with Manus
-          </Button>
-        </DialogFooter>
+        <div className="px-5 pb-5">
+          <SignIn
+            appearance={{
+              elements: {
+                rootBox: "w-full",
+                card: "shadow-none border-0 bg-transparent",
+                headerTitle: "hidden",
+                headerSubtitle: "hidden",
+                socialButtonsBlockButton: "w-full",
+              },
+            }}
+          />
+        </div>
       </DialogContent>
     </Dialog>
   );
 }
+
+// 하위 호환성을 위한 별칭 (Deprecated)
+export const LoginDialog = ManusDialog;

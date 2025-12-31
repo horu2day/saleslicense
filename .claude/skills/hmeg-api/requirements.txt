@@ -1,0 +1,8 @@
+# HmEG API Skill Dependencies
+# Google Gemini File Search API (신버전 SDK)
+google-genai>=1.0.0
+python-dotenv>=1.0.0
+
+# HTML/Markdown processing (토큰 최적화용)
+beautifulsoup4>=4.12.0
+html2text>=2024.2.26

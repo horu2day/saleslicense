@@ -1,10 +1,10 @@
 import { useAuth } from "@/_core/hooks/useAuth";
+import { SignInButton } from "@clerk/clerk-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Search, Github, Zap, Shield, Rocket } from "lucide-react";
 import { useState, useEffect } from "react";
-import { getLoginUrl } from "@/const";
 
 /**
  * Design Philosophy: Playful Modernism with Bold Personality
@@ -192,15 +192,14 @@ export default function Home() {
                 </Button>
               </>
             ) : (
-              <>
+              <SignInButton mode="modal">
                 <Button
                   variant="outline"
                   className="hidden sm:inline-flex border-gray-300 text-gray-700 hover:bg-gray-50"
-                  onClick={() => (window.location.href = getLoginUrl())}
                 >
                   Log in
                 </Button>
-              </>
+              </SignInButton>
             )}
             <Button className="bg-black text-white hover:bg-gray-900 transition-colors duration-200">
               Start selling

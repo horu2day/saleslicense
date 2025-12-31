@@ -1,53 +1,28 @@
-import { COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
 import type { Express, Request, Response } from "express";
-import * as db from "../db";
-import { getSessionCookieOptions } from "./cookies";
-import { sdk } from "./sdk";
 
-function getQueryParam(req: Request, key: string): string | undefined {
-  const value = req.query[key];
-  return typeof value === "string" ? value : undefined;
-}
-
+/**
+ * OAuth 라우트 등록
+ *
+ * Clerk 사용으로 인해 기존 OAuth 콜백 라우트는 더 이상 필요하지 않습니다.
+ * Clerk이 모든 인증 흐름을 자동으로 처리합니다.
+ *
+ * 이 함수는 하위 호환성을 위해 유지되며, 필요시 추가 라우트를 등록할 수 있습니다.
+ */
 export function registerOAuthRoutes(app: Express) {
-  app.get("/api/oauth/callback", async (req: Request, res: Response) => {
-    const code = getQueryParam(req, "code");
-    const state = getQueryParam(req, "state");
+  // Clerk은 자체적으로 인증을 처리하므로 별도의 OAuth 콜백이 필요 없습니다.
+  // 이 라우트는 이전 Manus OAuth에서 Clerk으로 마이그레이션 중인 사용자를 위해
+  // 안내 메시지를 제공합니다.
+  app.get("/api/oauth/callback", async (_req: Request, res: Response) => {
+    res.status(410).json({
+      message: "OAuth 콜백은 더 이상 사용되지 않습니다. Clerk 인증을 사용해주세요.",
+      redirect: "/",
+    });
+  });
 
-    if (!code || !state) {
-      res.status(400).json({ error: "code and state are required" });
-      return;
-    }
-
-    try {
-      const tokenResponse = await sdk.exchangeCodeForToken(code, state);
-      const userInfo = await sdk.getUserInfo(tokenResponse.accessToken);
-
-      if (!userInfo.openId) {
-        res.status(400).json({ error: "openId missing from user info" });
-        return;
-      }
-
-      await db.upsertUser({
-        openId: userInfo.openId,
-        name: userInfo.name || null,
-        email: userInfo.email ?? null,
-        loginMethod: userInfo.loginMethod ?? userInfo.platform ?? null,
-        lastSignedIn: new Date(),
-      });
-
-      const sessionToken = await sdk.createSessionToken(userInfo.openId, {
-        name: userInfo.name || "",
-        expiresInMs: ONE_YEAR_MS,
-      });
-
-      const cookieOptions = getSessionCookieOptions(req);
-      res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: ONE_YEAR_MS });
-
-      res.redirect(302, "/");
-    } catch (error) {
-      console.error("[OAuth] Callback failed", error);
-      res.status(500).json({ error: "OAuth callback failed" });
-    }
+  // 로그아웃 엔드포인트 (필요시)
+  app.post("/api/auth/logout", async (_req: Request, res: Response) => {
+    // Clerk은 클라이언트 측에서 로그아웃을 처리합니다.
+    // 서버 측에서는 추가적인 세션 정리가 필요한 경우에만 사용합니다.
+    res.json({ success: true, message: "로그아웃 완료" });
   });
 }

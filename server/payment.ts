@@ -1,15 +1,12 @@
 import { z } from 'zod';
-import { pool } from './db';
-import { orders, licenses } from '../drizzle/schema';
+import { getDb } from './db';
+import { orders, licenseKeys } from '../drizzle/schema';
 import { eq } from 'drizzle-orm';
-import { drizzle } from 'drizzle-orm/mysql2';
-
-// Drizzle ORM 인스턴스 생성
-const db = drizzle(pool);
+import { nanoid } from 'nanoid';
 
 /**
  * Toss Payments V2 API를 사용한 결제 승인 처리
- * 
+ *
  * 흐름:
  * 1. 클라이언트에서 결제 위젯으로 결제 요청
  * 2. 결제 성공 시 successUrl로 리다이렉트 (paymentKey, orderId, amount 포함)
@@ -24,7 +21,7 @@ const TOSS_API_URL = 'https://api.tosspayments.com/v1/payments';
 /**
  * 시크릿 키를 Base64로 인코딩하여 Basic 인증 헤더 생성
  */
-function getBasicAuthHeader(): string {
+export function getBasicAuthHeader(): string {
   // 시크릿 키 뒤에 콜론(:)을 추가하고 Base64로 인코딩
   const credentials = `${TOSS_SECRET_KEY}:`;
   const encoded = Buffer.from(credentials).toString('base64');
@@ -33,7 +30,7 @@ function getBasicAuthHeader(): string {
 
 /**
  * 2️⃣ 결제 승인 요청
- * 
+ *
  * 클라이언트에서 받은 paymentKey, orderId, amount를 사용하여
  * Toss Payments API에 결제 승인을 요청합니다.
  */
@@ -50,16 +47,20 @@ export async function approvePayment(
   try {
     console.log(`[결제 승인] 시작 - orderId: ${orderId}, amount: ${amount}`);
 
+    const db = await getDb();
+    if (!db) throw new Error('Database not available');
+
     // 1. 금액 검증 (클라이언트에서 조작되지 않았는지 확인)
-    const orderList = await db.select().from(orders).where(eq(orders.id, parseInt(orderId.split('-')[0]) || 0)).limit(1);
+    const orderIdNum = parseInt(orderId.split('-')[0]) || 0;
+    const orderList = await db.select().from(orders).where(eq(orders.id, orderIdNum)).limit(1);
     const order = orderList[0];
 
     if (!order) {
       throw new Error('주문을 찾을 수 없습니다.');
     }
 
-    // 금액이 일치하는지 확인 (보안)
-    const expectedAmount = Math.round(order.amount);
+    // 금액이 일치하는지 확인 (보안) - totalPrice 사용
+    const expectedAmount = Math.round(parseFloat(order.totalPrice));
     if (expectedAmount !== amount) {
       throw new Error('결제 금액이 일치하지 않습니다.');
     }
@@ -90,27 +91,26 @@ export async function approvePayment(
     // 3. 결제 성공 후 처리
     // - 주문 상태 업데이트
     // - 라이선스 키 생성
-    // - 구매자에게 라이선스 키 발송
 
     // 주문 상태를 'completed'로 업데이트
     await db
       .update(orders)
       .set({
         status: 'completed',
-        paymentKey: paymentKey,
+        transactionId: paymentKey,
         updatedAt: new Date(),
       })
       .where(eq(orders.id, order.id));
 
     // 라이선스 키 생성
     const licenseKey = generateLicenseKey();
-    await db.insert(licenses).values({
+    await db.insert(licenseKeys).values({
       key: licenseKey,
       productId: order.productId,
       buyerId: userId,
-      sellerId: order.sellerId,
-      isActive: true,
-      createdAt: new Date(),
+      orderId: order.id,
+      status: 'active',
+      activatedAt: new Date(),
       expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1년 유효
     });
 
@@ -134,10 +134,10 @@ export async function approvePayment(
  * 형식: SOFTHUB-XXXXXXXX-XXXXXXXX-XXXXXXXX
  */
 function generateLicenseKey(): string {
-  const generateSegment = () => {
-    return Math.random().toString(16).substr(2, 8).toUpperCase();
-  };
-  return `SOFTHUB-${generateSegment()}-${generateSegment()}-${generateSegment()}`;
+  const segment1 = nanoid(8).toUpperCase();
+  const segment2 = nanoid(8).toUpperCase();
+  const segment3 = nanoid(8).toUpperCase();
+  return `SOFTHUB-${segment1}-${segment2}-${segment3}`;
 }
 
 /**
@@ -151,8 +151,12 @@ export async function handlePaymentFailure(
   try {
     console.log(`[결제 실패] orderId: ${orderId}, code: ${errorCode}, message: ${errorMessage}`);
 
+    const db = await getDb();
+    if (!db) throw new Error('Database not available');
+
     // 주문 상태를 'failed'로 업데이트
-    const orderList = await db.select().from(orders).where(eq(orders.id, parseInt(orderId.split('-')[0]) || 0)).limit(1);
+    const orderIdNum = parseInt(orderId.split('-')[0]) || 0;
+    const orderList = await db.select().from(orders).where(eq(orders.id, orderIdNum)).limit(1);
     const order = orderList[0];
 
     if (order) {

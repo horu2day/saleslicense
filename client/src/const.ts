@@ -1,17 +1,8 @@
 export { COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
 
-// Generate login URL at runtime so redirect URI reflects the current origin.
+// Clerk 인증 사용 - 로그인 URL은 Clerk이 자동으로 처리합니다
+// 아래 함수는 하위 호환성을 위해 남겨둠 (사용되지 않음)
 export const getLoginUrl = () => {
-  const oauthPortalUrl = import.meta.env.VITE_OAUTH_PORTAL_URL;
-  const appId = import.meta.env.VITE_APP_ID;
-  const redirectUri = `${window.location.origin}/api/oauth/callback`;
-  const state = btoa(redirectUri);
-
-  const url = new URL(`${oauthPortalUrl}/app-auth`);
-  url.searchParams.set("appId", appId);
-  url.searchParams.set("redirectUri", redirectUri);
-  url.searchParams.set("state", state);
-  url.searchParams.set("type", "signIn");
-
-  return url.toString();
+  console.warn("[Auth] getLoginUrl은 더 이상 사용되지 않습니다. Clerk을 사용하세요.");
+  return "#";
 };

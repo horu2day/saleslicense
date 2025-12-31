@@ -1,0 +1,4 @@
+usage: search_api.py [-h] [--query QUERY] [--class CLASS_NAME]
+                     [--method METHOD] [--example EXAMPLE] [--store STORE]
+                     [--model MODEL] [--list-stores] [--raw]
+search_api.py: error: unrecognized arguments: AddShape
