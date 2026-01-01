@@ -36,7 +36,7 @@ export default function Home() {
       });
       return;
     }
-    setLocation(`/checkout/${productId}`);
+    window.location.href = `/checkout/${productId}`;
   };
 
   // 판매 시작 버튼 클릭 핸들러
@@ -51,7 +51,7 @@ export default function Home() {
       });
       return;
     }
-    setLocation("/dashboard");
+    window.location.href = "/dashboard";
   };
 
   // Floating animation for decorative elements

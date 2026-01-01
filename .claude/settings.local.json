@@ -17,7 +17,14 @@
       "Bash(if not exist \".vscode\" mkdir \".vscode\")",
       "Bash(npm run check:*)",
       "Bash(pnpm --version:*)",
-      "Bash(pnpm exec tsc:*)"
+      "Bash(pnpm exec tsc:*)",
+      "Bash(where:*)",
+      "Bash(if not exist \".env\" copy .env.example .env)",
+      "Bash(docker run:*)",
+      "Bash(timeout /t 10)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(taskkill:*)"
     ]
   }
 }
